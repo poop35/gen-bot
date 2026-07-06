@@ -1,28 +1,25 @@
 import discord
 from discord.ext import commands
-import os
 import aiosqlite
-
-# ---------------- BOT SETUP ----------------
-
-intents = discord.Intents.default()
-intents.members = True
-intents.guilds = True
-intents.message_content = True
-
-bot = commands.Bot(
-    command_prefix="!",
-    intents=intents,
-    help_command=None  # FIXES YOUR ERROR
-)
+import os
+import json
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 if not TOKEN:
-    raise Exception("DISCORD_TOKEN is missing in Railway variables")
+    raise Exception("DISCORD_TOKEN missing")
+
+with open("config.json", "r") as f:
+    config = json.load(f)
+
+intents = discord.Intents.default()
+intents.guilds = True
+intents.message_content = True
+
+bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
 
-# ---------------- DATABASE ----------------
+# ---------------- DB ----------------
 
 async def setup_db():
     async with aiosqlite.connect("database.db") as db:
@@ -32,13 +29,11 @@ async def setup_db():
             account TEXT
         )
         """)
-
         await db.execute("""
         CREATE TABLE IF NOT EXISTS services (
             name TEXT UNIQUE
         )
         """)
-
         await db.commit()
 
 
@@ -47,41 +42,62 @@ async def setup_db():
 @bot.event
 async def on_ready():
     await setup_db()
-    print("🔥 BOT FILE IS RUNNING")
-    print(f"Nova Market V2 is online as {bot.user}")
+    await bot.tree.sync()
+    print(f"🔥 Nova Market V2 online as {bot.user}")
 
 
-# ---------------- HELP (CUSTOM) ----------------
+# ---------------- CHECK PERMISSION ----------------
 
-@bot.command()
-async def help(ctx):
-    await ctx.send(
-        "**Nova Market V2 Commands**\n"
-        "!gen <service>\n"
-        "!stock\n"
-        "!services\n"
-        "!addstock <service> (with .txt file)"
+def is_admin(member: discord.Member):
+    return any(role.id in config["admin_role_ids"] for role in member.roles)
+
+
+# ---------------- /HELP ----------------
+
+@bot.tree.command(name="help")
+async def help_cmd(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "/gen\n/stock\n/services\n/addstock\n/addservice"
     )
 
 
-# ---------------- SERVICES ----------------
+# ---------------- /SERVICES ----------------
 
-@bot.command()
-async def services(ctx):
+@bot.tree.command(name="services")
+async def services(interaction: discord.Interaction):
     async with aiosqlite.connect("database.db") as db:
         async with db.execute("SELECT name FROM services") as c:
             rows = await c.fetchall()
 
     if not rows:
-        return await ctx.send("No services found.")
+        return await interaction.response.send_message("No services found.")
 
-    await ctx.send("\n".join([r[0] for r in rows]))
+    await interaction.response.send_message("\n".join([r[0] for r in rows]))
 
 
-# ---------------- STOCK ----------------
+# ---------------- /ADD SERVICE ----------------
 
-@bot.command()
-async def stock(ctx):
+@bot.tree.command(name="addservice")
+async def addservice(interaction: discord.Interaction, name: str):
+    if not is_admin(interaction.user):
+        return await interaction.response.send_message("No permission.")
+
+    async with aiosqlite.connect("database.db") as db:
+        try:
+            await db.execute(
+                "INSERT INTO services (name) VALUES (?)",
+                (name,)
+            )
+            await db.commit()
+            await interaction.response.send_message(f"Added service {name}")
+        except:
+            await interaction.response.send_message("Service already exists.")
+
+
+# ---------------- /STOCK ----------------
+
+@bot.tree.command(name="stock")
+async def stock(interaction: discord.Interaction):
     async with aiosqlite.connect("database.db") as db:
         async with db.execute(
             "SELECT service, COUNT(*) FROM stock GROUP BY service"
@@ -89,19 +105,25 @@ async def stock(ctx):
             rows = await c.fetchall()
 
     if not rows:
-        return await ctx.send("No stock found.")
+        return await interaction.response.send_message("No stock.")
 
-    await ctx.send("\n".join([f"{r[0]}: {r[1]}" for r in rows]))
+    await interaction.response.send_message(
+        "\n".join([f"{r[0]}: {r[1]}" for r in rows])
+    )
 
 
-# ---------------- ADD STOCK ----------------
+# ---------------- /ADD STOCK ----------------
 
-@bot.command()
-async def addstock(ctx, service: str):
-    if not ctx.message.attachments:
-        return await ctx.send("Upload a .txt file with accounts.")
+@bot.tree.command(name="addstock")
+async def addstock(
+    interaction: discord.Interaction,
+    service: str,
+    file: discord.Attachment
+):
 
-    file = ctx.message.attachments[0]
+    if not is_admin(interaction.user):
+        return await interaction.response.send_message("No permission.")
+
     data = await file.read()
     lines = data.decode().splitlines()
 
@@ -119,13 +141,40 @@ async def addstock(ctx, service: str):
 
         await db.commit()
 
-    await ctx.send(f"✅ Added {added} accounts to {service}")
+    await interaction.response.send_message(
+        f"Added {added} accounts to {service}"
+    )
 
 
-# ---------------- GEN ----------------
+# ---------------- /GEN (FULL SYSTEM) ----------------
 
-@bot.command()
-async def gen(ctx, service: str):
+@bot.tree.command(name="gen")
+async def gen(interaction: discord.Interaction, service: str):
+
+    guild = interaction.guild
+    member = interaction.user
+
+    free_role = guild.get_role(config["free_role_id"])
+    premium_role = guild.get_role(config["premium_role_id"])
+
+    channel_id = interaction.channel.id
+
+    is_premium = premium_role in member.roles
+    is_free = free_role in member.roles
+
+    # CHANNEL CHECK
+    if is_premium:
+        if channel_id != config["premium_gen_channel_id"]:
+            return await interaction.response.send_message("Use premium gen channel.")
+
+    if is_free:
+        if channel_id != config["free_gen_channel_id"]:
+            return await interaction.response.send_message("Use free gen channel.")
+
+    if not is_free and not is_premium:
+        return await interaction.response.send_message("No gen role.")
+
+    # STOCK CHECK
     async with aiosqlite.connect("database.db") as db:
         async with db.execute(
             "SELECT account FROM stock WHERE service = ? LIMIT 1",
@@ -134,7 +183,7 @@ async def gen(ctx, service: str):
             row = await c.fetchone()
 
         if not row:
-            return await ctx.send("❌ Out of stock.")
+            return await interaction.response.send_message("Out of stock.")
 
         account = row[0]
 
@@ -145,12 +194,12 @@ async def gen(ctx, service: str):
         await db.commit()
 
     try:
-        await ctx.author.send(f"Account: {account}")
-        await ctx.send("📩 Check your DMs!")
+        await member.send(f"{service} account:\n{account}")
+        await interaction.response.send_message("Sent to DMs.")
     except:
-        await ctx.send("Enable DMs to receive accounts.")
+        await interaction.response.send_message("Enable DMs.")
 
 
-# ---------------- RUN BOT ----------------
+# ---------------- RUN ----------------
 
 bot.run(TOKEN)
