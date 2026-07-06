@@ -1,9 +1,9 @@
 {
-  "guild_id": 0,
-  "free_role_id": 0,
-  "premium_role_id": 0,
-  "free_gen_channel_id": 0,
-  "premium_gen_channel_id": 0,
+  "guild_id": 1515913355078926356,
+  "free_role_id": 1522830859244408933,
+  "premium_role_id": 1517490160894345287,
+  "free_gen_channel_id": 1517216011999252650,
+  "premium_gen_channel_id": 1517490031625769121,
   "free_services": [],
   "premium_services": []
 }
