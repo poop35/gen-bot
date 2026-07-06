@@ -184,20 +184,24 @@ async def stock(interaction: discord.Interaction):
 
 @bot.tree.command(name="addservice")
 async def addservice(interaction: discord.Interaction, name: str):
-    if not is_admin(interaction.user):
-        return await interaction.response.send_message("No permission.")
 
-    async with aiosqlite.connect("database.db") as db:
-        try:
+    if not is_admin(interaction.user):
+        return await interaction.response.send_message("No permission.", ephemeral=True)
+
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        async with aiosqlite.connect("database.db") as db:
             await db.execute(
                 "INSERT INTO services (name) VALUES (?)",
                 (name,)
             )
             await db.commit()
-            await interaction.response.send_message(f"Added service {name}")
-        except:
-            await interaction.response.send_message("Service already exists.")
 
+        await interaction.followup.send(f"✅ Added service: {name}")
+
+    except:
+        await interaction.followup.send("❌ Service already exists or error occurred.")
 
 @bot.tree.command(name="addstock")
 async def addstock(
