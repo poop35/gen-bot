@@ -1,0 +1,9 @@
+{
+  "guild_id": 0,
+  "free_role_id": 0,
+  "premium_role_id": 0,
+  "free_gen_channel_id": 0,
+  "premium_gen_channel_id": 0,
+  "free_services": [],
+  "premium_services": []
+}
