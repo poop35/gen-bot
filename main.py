@@ -177,13 +177,11 @@ async def service_autocomplete(
     current: str
 ):
 
-    async with aiosqlite.connect(DB_NAME) as db:
-
-        async with db.execute(
-            "SELECT name FROM services"
-        ) as cursor:
-
-            rows = await cursor.fetchall()
+   async with aiosqlite.connect(DB_NAME) as db:
+    async with db.execute(
+        "SELECT name FROM services"
+    ) as cursor:
+        rows = await cursor.fetchall()
 
     return [
         app_commands.Choice(
