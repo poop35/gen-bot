@@ -941,4 +941,5 @@ async def customcooldown(
         )
     )
 
+print(TOKEN[:10] if TOKEN else "TOKEN IS NONE")
 bot.run(TOKEN)
