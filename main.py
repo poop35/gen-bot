@@ -5,9 +5,8 @@ from discord import app_commands
 import aiosqlite
 import time
 import json
-
-TOKEN = ""
-
+import os
+TOKEN = os.getenv("TOKEN")
 GUILD_ID = 1520475502278742237
 
 SUB_ROLE_ID = 1520781371096698972
@@ -18,7 +17,7 @@ MOD_ROLE_NAME = "Staff"
 
 ADMIN_ROLE_NAME = "Trusted Staff"
 
-DB_NAME = "" 
+DB_NAME = "database.db" 
 
 GIF_URL = "https://cdn.discordapp.com/attachments/1520710523635896421/1522351273817669753/lp_image.gif" 
 
