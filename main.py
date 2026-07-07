@@ -235,12 +235,11 @@ async def check_expired():
 
 @bot.event
 async def on_ready():
-
     await setup_db()
 
     guild = discord.Object(id=GUILD_ID)
 
-
+    tree.copy_global_to(guild=guild)
     await tree.sync(guild=guild)
 
     check_expired.start()
