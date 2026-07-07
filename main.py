@@ -265,7 +265,7 @@ async def helpcmd(interaction: discord.Interaction):
 `/users` - Role user count
 
 ADMIN & MOD:
-`/serviceadd` - Add a service
+`/addservice` - Add a service
 `/servicedelete` - Delete a service
 `/stockadd` - Add stock from .txt file
 `/stockclear` - Clear stock for a service
@@ -280,7 +280,7 @@ ADMIN & MOD:
         embed=embed
     )
 
-@tree.command(name="serviceadd")
+@tree.command(name="addservice")
 async def serviceadd(
     interaction: discord.Interaction,
     name: str
