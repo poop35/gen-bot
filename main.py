@@ -240,7 +240,6 @@ async def on_ready():
 
     guild = discord.Object(id=GUILD_ID)
 
-    tree.copy_global_to(guild=guild)
 
     await tree.sync(guild=guild)
 
